@@ -78,7 +78,18 @@ public class HashMapLogger<K, V> {
     }
 
     /**
-     * Обёртка оригинального метода put класса HashMap
+     * Это просто внутренний утилитарно-статический класс, предоставляющий логику хэширования.
+     */
+    static class HashCoder {
+        // "Cкопипащенно" из реализации HashMap:
+        static int hash(Object key) {
+            int h;
+            return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+        }
+    }
+
+    /**
+     * Обёртка оригинального метода put класса HashMap.
      *
      * @param key   ключ.
      * @param value значение.
@@ -86,17 +97,6 @@ public class HashMapLogger<K, V> {
     public void put(K key, V value) {
 
         mapLogger.severe("\n\n\nНачинаем вставлять пару (" + key + ", " + value + ")"); // Сообщение о старте вставки и логирования.
-
-        /*
-         Это просто локальный класс, предоставляющий логику хэширования.
-         */
-        class HashCoder {
-            // "Cкопипащенно" из реализации HashMap:
-            static int hash(Object key) {
-                int h;
-                return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
-            }
-        }
 
         map.put(key, value); // Сама вставка.
 
@@ -175,6 +175,82 @@ public class HashMapLogger<K, V> {
 
     }
 
+    private static List<String> bucketContainer;
+
+    /**
+     * Обертка оригинального метода get из класса HashMap.
+     *
+     * @param key ключ.
+     * @return значение в паре.
+     */
+    public V get(K key) {
+
+        /*
+         * sizeOfTable - размер таблицы бакетов.
+         * hash - хэшкод ключа.
+         * buckets - поле класса HashMap, содержащее бакеты(и ноды внутри них).
+         * bucketIndex - индекс бакета где хранится нужная нода.
+         */
+        int sizeOfTable, hash = HashCoder.hash(key), bucketIndex;
+        Field buckets;
+        Object[] objectsBuckets;
+
+        try {
+            /*
+             * Обращение к полю класса через рефлексию.
+             */
+            buckets = HashMap.class.getDeclaredField("table");
+            /*
+             * Открытие доступа к полю.
+             */
+            buckets.setAccessible(true);
+            /*
+             * Получаем значение поля table.
+             * Приводим к нужному типу.
+             */
+            objectsBuckets = ((Object[]) buckets.get(this.map));
+            sizeOfTable = objectsBuckets.length;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+
+        mapLogger.severe("\n\n\nНачинаем искать значение по ключу(" + key + ")"); // Сообщение о старте поиска и логирования.
+        mapLogger.warning("Считаем хэшкод ключа... Хэшкод = " + hash);
+
+        int intermediateDifference = sizeOfTable - 1;
+        bucketIndex = intermediateDifference & hash;
+
+        mapLogger.warning("Считаем индекс элемента по хэшкоду ключа... Индекс = " + new StringBuilder("(n - 1) & hash = ")
+                .append("(")
+                .append(sizeOfTable)
+                .append(" - 1)")
+                .append(" & ")
+                .append(hash)
+                .append(" = ")
+                .append(intermediateDifference)
+                .append(" & ")
+                .append(hash)
+                .append(" = ")
+                .append(Integer.toBinaryString(intermediateDifference))
+                .append(" & ")
+                .append(Integer.toBinaryString(hash))
+                .append(" = ")
+                .append(bucketIndex)
+        );
+        logBuckets();
+
+        mapLogger.warning("Итак вот бакет с нужным индексом: ");
+        mapLogger.info(String.format(
+                "Bucket[%d]: %s%nИщем ноду, где контракт equals/hashcode будет выполнен и получаем: %s",
+                bucketIndex,
+                bucketContainer.get(bucketIndex),
+                map.get(key)
+        ));
+
+
+        return map.get(key);
+    }
+
 
     /**
      * Метод выводящий всю таблицу бакетов и нод внутри них.
@@ -201,7 +277,7 @@ public class HashMapLogger<K, V> {
 
         try {
             /*
-             * Получаем значение поля table/
+             * Получаем значение поля table.
              * Приводим к нужному типу.
              */
             Object[] buckets = (Object[]) table.get(this.map);
@@ -218,6 +294,11 @@ public class HashMapLogger<K, V> {
             }).toList();
 
             /*
+             * Записываю во внешний контейнер.
+             */
+            bucketContainer = list;
+
+            /*
              * Ну тут просто вывожу красиво...
              */
             for (int i = 0; i < list.size(); i++) {
@@ -232,6 +313,7 @@ public class HashMapLogger<K, V> {
 
     /**
      * Метод преобразования ноды в строку.
+     *
      * @param node    сама нода.
      * @param result  билдер, который "собирает" результат для лога.
      * @param counter счетчик индексов нод.
@@ -287,7 +369,18 @@ public class HashMapLogger<K, V> {
             throw new RuntimeException(ex);
         }
 
-        result.append(" Node[").append(counter).append("] { KEY: ").append(key).append(" VALUE: ").append(value).append(" HASH: ").append(hash).append(" } ---> ");
+
+        result
+                .append(" Node[")
+                .append(counter)
+                .append("] { KEY: ")
+                .append(key)
+                .append(" VALUE: ")
+                .append(value)
+                .append(" HASH: ")
+                .append(hash)
+                .append(" } ---> ")
+                .append(LoggerProvider.RESET);
 
         /*
          * Если есть нода, на которую ссылается текущая, то продолжаем парсить.
@@ -302,5 +395,6 @@ public class HashMapLogger<K, V> {
         }
 
     }
+
 
 }

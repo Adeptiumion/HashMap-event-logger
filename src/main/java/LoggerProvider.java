@@ -20,9 +20,11 @@ public class LoggerProvider {
      * - 36 — циановый
      * - 37 — белый
      **/
+    public static String RESET = "\u001B[0m";
     public static String SEVERE = "\u001B[31m";
     public static String INFO = "\u001B[37m";
     public static String WARNING = "\u001B[35m";
+    public static String CONFIG = "\u001B[32m";
 
     /**
      * Экземпляр поставляемый классом.
@@ -35,6 +37,7 @@ public class LoggerProvider {
      * Метод предоставляющий кастомный логгер.
      * Тут я ставлю свой форматёр, где определяю цвета для каждого из уровней логирования.
      * При желании их можно изменить в методах setColorOfSevere, setColorOfWarning, setColorOfInfo.
+     *
      * @param className имя класса, который будет использовать логгер.
      * @return настроенный и готовый к использованию экземпляр кастомного логгера.
      * @see LoggerProvider
@@ -55,9 +58,11 @@ public class LoggerProvider {
                     color = SEVERE;
                 else if (record.getLevel().intValue() >= Level.WARNING.intValue())
                     color = WARNING;
-                else
+                else if (record.getLevel().intValue() >= Level.INFO.intValue())
                     color = INFO;
-                return color + record.getMessage() + "\n"; // Перед сообщением, путём конкатенации можно определить код цвета текста. Определение цвета происходит в самом терминале!
+                else
+                    color = CONFIG;
+                return color + record.getMessage() + RESET + "\n"; // Перед сообщением, путём конкатенации можно определить код цвета текста. Определение цвета происходит в самом терминале!
             }
         });
         logger.addHandler(consoleHandler); // Устанавливаем именно наш обработчик вывода.
@@ -67,6 +72,7 @@ public class LoggerProvider {
 
     /**
      * Определяет цвет для сообщения уровня SEVERE.
+     *
      * @param color код цвета.
      * @return Logger.
      */
@@ -77,6 +83,7 @@ public class LoggerProvider {
 
     /**
      * Определяет цвет для сообщения уровня WARNING.
+     *
      * @param color код цвета.
      * @return Logger.
      */
@@ -87,6 +94,7 @@ public class LoggerProvider {
 
     /**
      * Определяет цвет для сообщения уровня INFO.
+     *
      * @param color код цвета.
      * @return Logger.
      */
