@@ -9,6 +9,7 @@ import java.util.HashMap;
  * java --add-opens java.base/java.util=ALL-UNNAMED Main
  *
  * либо запусти run.ps1
+ * P.S Если run.ps1 вытрёпывается на безопасность, открой его отдельно от имени администратора и вставь Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser.
  */
 
 /**
@@ -20,8 +21,8 @@ import java.util.HashMap;
 public class Main {
     public static void main(String[] args) {
         HashMapLogger<String, Integer> loggerContainer = new HashMapLogger<>(new HashMap<>());
-        for (int i = 0; i < 23; i++) {
-            loggerContainer.put(String.valueOf(i), i);
+        for (int i = 0; i < 25; i++) {
+            loggerContainer.put(String.valueOf(i) + "---", i * i);
             loggerContainer.logBuckets();
         }
         System.out.println("Answer: " + loggerContainer.get("21"));
